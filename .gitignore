@@ -1,0 +1,6 @@
+.pio/
+node_modules/
+target/
+.vscode/
+.DS_Store
+Thumbs.db
