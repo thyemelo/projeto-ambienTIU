@@ -14,7 +14,7 @@ public class Model {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private String temperate;
+    private String temperature;
     private String humidity;
     private String ilumination;
     private LocalDateTime time;
@@ -22,14 +22,14 @@ public class Model {
     public Model(){}
 
     public Model(String temperate, String humidity, String ilumination, LocalDateTime time){
-        setTemperate(temperate);
+        setTemperature(temperate);
         setHumidity(humidity);
         setIlumination(ilumination);
         setTime(time);
     }
 
-    public void setTemperate(String temperate) {
-        this.temperate = temperate;
+    public void setTemperature(String temperature) {
+        this.temperature = temperature;
     }
 
     public void setHumidity(String humidity) {
@@ -44,8 +44,8 @@ public class Model {
         this.time = time;
     }
 
-    public String getTemperate(){
-        return temperate;
+    public String getTemperature(){
+        return temperature;
     }
 
     public String getHumidity() {
