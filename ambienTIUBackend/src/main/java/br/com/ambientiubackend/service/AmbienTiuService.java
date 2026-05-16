@@ -17,7 +17,7 @@ public class AmbienTiuService {
      *
      * Dto é utilizado para transportar os dados para que o model -- como entidade -- salve no repositorio os dados
      */
-    public void data(Dto dto){
+    public void saveData(Dto dto){
 
         Model newModel = new Model(
                 dto.temperature(),
@@ -27,5 +27,23 @@ public class AmbienTiuService {
         );
 
         repository.save(newModel);
+    }
+
+    /**
+     *
+     * Classe responsavel pela vizualição dos dados na web
+     *
+     * Dto irá transportar os dados através do metodo no service para o controller
+     */
+    public Dto viewData(Model model){
+
+        Dto newDto = new Dto(
+                model.getTemperature(),
+                model.getHumidity(),
+                model.getIlumination(),
+                model.getTime()
+        );
+
+        return newDto;
     }
 }
