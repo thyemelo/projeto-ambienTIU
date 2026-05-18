@@ -1,12 +1,17 @@
+//importação das bibliotecas
 #include <Arduino.h>
-//Importação das bibliotecas
 #include <WiFi.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include <DHT.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <esp_sleep.h>
+#include <WiFiManager.h>
+
+//Ignorar certificado SSL ++
+WiFiClientSecure client;
 
 //Definição dos parâmetros do display
 #define LARGURA_DISPLAY 128
@@ -20,12 +25,11 @@
 //Definição do pino do LDR, botão e led de conexão
 #define LDR 35
 #define bt_reset 33
-#define led_conexao 34
+#define led_conexao 32
 
-//Definição dos parâmetros da rede wifi
-const char* ssid = "IOLANDA - Oi FIBRA 2.4/5G";
-const char* pass = "***";
-const char* url_server = "";
+//Inicialização do objeto WiFiManager e url do servidor
+WiFiManager wm;
+const char* url_server = "https://catnip-ranger-dehydrate.ngrok-free.dev/data";
 
 //Criação do objeto do display
 Adafruit_SSD1306 display(LARGURA_DISPLAY, ALTURA_DISPLAY, &Wire, RESET_OLED);
@@ -38,23 +42,36 @@ int temperatura = 0;
 int umidade = 0;
 int iluminacao = 0;
 
+//variáveis de tempo
+unsigned long tempoAnterior = 0;
+const long intervalo = 20000;
+
 //Declaração das funções
 int ler_temperatura_dht(int temperatura);
 int ler_umidade_dht(int umidade);
 int ler_ldr(int iluminacao);
 void saida_display(int temperatura, int umidade, int iluminacao);
 void IRAM_ATTR reset_esp();
-void enviar_dados_servidor();
+void enviar_dados_servidor(int temperatura, int umidade, int iluminacao);
 
 void setup() {
   //Inicialização dos componentes
   Serial.begin(115200);
 
+  //Inicialização do processo de conexão com WiFiManager
+  wm.setConfigPortalTimeout(60);
+  bool res;
+  res = wm.autoConnect("ESP32");
+
+  if(!res){
+    Serial.println("Falha na conexão.");
+    ESP.restart();
+  }else{
+    Serial.println("Conexão bem sucedida.");
+  }
+  
   //Inicialização do led
   pinMode(led_conexao, OUTPUT);
-
-  //Configuração do tempo de baixo consumo de energia
-  esp_sleep_enable_timer_wakeup(20 * 1000000);
 
   //Inicialização do LDR e do botão
   pinMode(LDR, INPUT);
@@ -67,20 +84,30 @@ void setup() {
   //Inicialização do sensor dht
   dht.begin();
 
-  //Inicialização do WiFi
-  WiFi.begin(ssid, pass);
-
   //Criando a interrupção para o reset
   attachInterrupt(bt_reset, reset_esp, FALLING);
+
+  //Ativando o modem sleep
+  //WiFi.setSleep(true);
+
+  //Ignorar certificação SSL ++
+  client.setInsecure();
+  client.setTimeout(15);
 }
 
 
 void loop() {
-  ler_temperatura_dht(temperatura);
-  ler_umidade_dht(umidade);
-  ler_ldr(iluminacao);
-  saida_display(ler_temperatura_dht(temperatura), ler_umidade_dht(umidade), ler_ldr(iluminacao));
-  esp_light_sleep_start();
+  unsigned long tempoAtual =  millis();
+
+  if(tempoAtual - tempoAnterior >= intervalo){
+    tempoAnterior = tempoAtual;
+
+    ler_temperatura_dht(temperatura);
+    ler_umidade_dht(umidade);
+    ler_ldr(iluminacao);
+    saida_display(ler_temperatura_dht(temperatura), ler_umidade_dht(umidade), ler_ldr(iluminacao));
+    enviar_dados_servidor(ler_temperatura_dht(temperatura), ler_umidade_dht(umidade), ler_ldr(iluminacao));
+  }
 }
 
 
@@ -143,25 +170,27 @@ void enviar_dados_servidor(int temperatura, int umidade, int iluminacao){
   Serial.println(WiFi.localIP());
 
   //Criação dos objetos e definição de tempo de timeout
-  WiFiClient client;
+  //WiFiClient client;
   HTTPClient http;
   http.setTimeout(15000);
 
   //Envio de dados
   String url = String(url_server);
-  String dados_json = "{\"Temperatura\":" + String(temperatura) + ",\"Umidade\":" + String(umidade) + ",\"Iluminação\":" + String(iluminacao) + "  }";
+  String dados_json = "{\"temperatura\":" + String(temperatura) + ",\"umidade\":" + String(umidade) + ",\"iluminacao\":" + String(iluminacao) + " }";
   Serial.println("Json a ser enviado: " + dados_json);
   http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("ngrok-skip-browser-warning", "true");
   int httpCode = http.POST(dados_json);
 
   //Verificação do envio
   if(httpCode > 0){
-    Serial.println("[HTTP] POST - Envio bem sucedido! Código " + httpCode);
-    String resposta = http .getString();
+    Serial.print("[HTTP] POST - Envio bem sucedido! Código ");
+    Serial.println(httpCode);
+    String resposta = http.getString();
     Serial.println("Resposta do servidor: " + resposta);
   }else{
-    Serial.print("[HTTP] POST - Falha no envio dos dados. Código ");
+    Serial.print("[HTTP] POST - Falha no envio dos dados. Código: ");
     Serial.println(http.errorToString(httpCode).c_str());
   }
   http.end();
