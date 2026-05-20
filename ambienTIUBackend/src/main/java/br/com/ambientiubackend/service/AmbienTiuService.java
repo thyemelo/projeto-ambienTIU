@@ -56,13 +56,22 @@ public class AmbienTiuService {
     /**
      * Metodo responsavel por mostrar os dados ao vivo
      */
-    public Dto viewData(Model model){
+    public Dto viewData(){
+
+        List<Model> listModel = repository.findAll();
+
+        if (listModel.isEmpty()){
+             Dto dtoZero = new Dto("00", "00", "00", null);
+             return dtoZero;
+        }
+
+        Model dataModel = listModel.get(listModel.size() -1);
 
         Dto newDto = new Dto(
-                model.getTemperatura(),
-                model.getUmidade(),
-                model.getIluminacao(),
-                model.getTime()
+                dataModel.getTemperatura(),
+                dataModel.getUmidade(),
+                dataModel.getIluminacao(),
+                dataModel.getTime()
         );
 
         return newDto;

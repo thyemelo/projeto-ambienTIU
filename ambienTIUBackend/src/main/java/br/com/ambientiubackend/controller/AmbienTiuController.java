@@ -27,8 +27,8 @@ public class AmbienTiuController {
     }
 
     @GetMapping
-    public ResponseEntity<Dto> viewData(Model model){
-        Dto dto = ambienTiuService.viewData(model);
+    public ResponseEntity<Dto> viewData(){
+        Dto dto = ambienTiuService.viewData();
         return ResponseEntity.ok(dto);
     }
 
