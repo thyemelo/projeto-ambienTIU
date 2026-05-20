@@ -5,14 +5,20 @@ import br.com.ambientiubackend.model.Model;
 import br.com.ambientiubackend.repository.Repository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class AmbienTiuService {
 
     @Autowired
     Repository repository;
+
+    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     /**
      * Metodo responsavel por receber os dados em tempo real do arduino
@@ -28,7 +34,65 @@ public class AmbienTiuService {
         );
 
         repository.save(newModel);
+
+        // Informar dados atualizados para o método viewDataLive no qual informará os dados ao vivo
+        Dto updateDto = new Dto(
+                newModel.getTemperatura(),
+                newModel.getUmidade(),
+                newModel.getIluminacao(),
+                newModel.getTime()
+        );
+        viewDataLive(updateDto);
+
         return dto;
+    }
+
+    /**
+     *
+     * Metodo responsavel por:
+     *
+     * Enviar dados ao vivo para o navegador
+     * Remover usuário que tenha fechado navegador para melhor processamento do programa
+     */
+    private void viewDataLive(Dto dto){
+
+        List<SseEmitter> closedEmitters = new ArrayList<>();
+
+        for (SseEmitter emitter : emitters){
+            // Envia os dados atualizados ao navegador
+            try {
+                emitter.send(SseEmitter.event().data(dto));
+            } catch (IOException e) {
+                // Caso o usúario tenha fechado o navegador, removeremos o usuario após finalização do for
+                closedEmitters.add(emitter);
+            }
+        }
+
+        emitters.removeAll(closedEmitters);
+    }
+
+    /**
+     * Metodo responsavel por mostrar o último dado salvo
+     */
+    public Dto viewData(){
+
+        List<Model> listModel = repository.findAll();
+
+        if (listModel.isEmpty()){
+            Dto dtoZero = new Dto("00", "00", "00", null);
+            return dtoZero;
+        }
+
+        Model dataModel = listModel.get(listModel.size() -1);
+
+        Dto newDto = new Dto(
+                dataModel.getTemperatura(),
+                dataModel.getUmidade(),
+                dataModel.getIluminacao(),
+                dataModel.getTime()
+        );
+
+        return newDto;
     }
 
     /**
@@ -51,29 +115,5 @@ public class AmbienTiuService {
                         model.getTime()
                 ))
                 .toList();
-    }
-
-    /**
-     * Metodo responsavel por mostrar os dados ao vivo
-     */
-    public Dto viewData(){
-
-        List<Model> listModel = repository.findAll();
-
-        if (listModel.isEmpty()){
-             Dto dtoZero = new Dto("00", "00", "00", null);
-             return dtoZero;
-        }
-
-        Model dataModel = listModel.get(listModel.size() -1);
-
-        Dto newDto = new Dto(
-                dataModel.getTemperatura(),
-                dataModel.getUmidade(),
-                dataModel.getIluminacao(),
-                dataModel.getTime()
-        );
-
-        return newDto;
     }
 }
