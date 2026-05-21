@@ -72,6 +72,28 @@ public class AmbienTiuService {
     }
 
     /**
+     * Método responsável por enviar os dados ao Controller em tempo real
+     */
+    public SseEmitter subscribeLiveStream(){
+
+        // Dados continuaram atualizando para o usuario por tempo ilimitado até que ele feche o navegador
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+
+        // Adciona um novo usuario na lista da transmissão ao vivo
+        this.emitters.add(emitter);
+
+        // Caso o usuario feche a abba ou saia do navegador, remove da lista da transmissão ao vivo
+        emitter.onCompletion(() -> this.emitters.remove(emitter));
+
+        // Envia o ultimo dado do banco de dados para que a tela não comece vazia
+        try {
+            emitter.send(SseEmitter.event().data(viewData()));
+        } catch(IOException ignored) {}
+
+        return emitter;
+    }
+
+    /**
      * Metodo responsavel por mostrar o último dado salvo
      */
     public Dto viewData(){
